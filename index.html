@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kana Rain</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <style>
+    :root {
+      --line: #ff2e63;
+      --bg: #1e1b4b;
+      --fg: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: linear-gradient(180deg, #1e1b4b 0%, #311042 100%);
+      color: var(--fg);
+      font-family: "Hiragino Maru Gothic ProN", "Rounded Mplus 1c", "Comic Sans MS", "Trebuchet MS", system-ui, sans-serif;
+      overflow: hidden;
+    }
+    #hud {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 10px;
+      padding: 8px 14px;
+      font-size: 15px;
+      font-weight: 700;
+      position: relative;
+      z-index: 4;
+      background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%);
+      border-bottom: 4px solid #fbbf24;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    }
+    .hud-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 2px solid rgba(255, 255, 255, 0.85);
+      box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25), inset 0 2px 0 rgba(255, 255, 255, 0.45);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+      transition: transform 0.15s ease;
+    }
+    .hud-pill.pop {
+      transform: scale(1.16);
+    }
+    .pill-score { background: linear-gradient(180deg, #fbbf24, #f59e0b); color: #451a03; text-shadow: none; }
+    .pill-miss  { background: linear-gradient(180deg, #fb7185, #e11d48); color: #fff; }
+    .pill-high  { background: linear-gradient(180deg, #38bdf8, #0284c7); color: #fff; }
+    .pill-set   { background: linear-gradient(180deg, #a78bfa, #7c3aed); color: #fff; }
+    .pill-count { background: linear-gradient(180deg, #34d399, #059669); color: #fff; }
+    .pill-speed { background: linear-gradient(180deg, #fb923c, #ea580c); color: #fff; }
+    #hearts {
+      font-size: 14px;
+      letter-spacing: 1px;
+    }
+    #hud label {
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    select {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 2px solid #fff;
+      background: #ffffff;
+      color: #1e1b4b;
+      cursor: pointer;
+      outline: none;
+    }
+    input[type="range"] {
+      accent-color: #fde047;
+      width: 96px;
+      cursor: pointer;
+    }
+    #count-val {
+      display: inline-block;
+      min-width: 26px;
+      text-align: center;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 1px 6px;
+      border-radius: 999px;
+      color: #fef08a;
+    }
+    #play {
+      position: relative;
+      height: calc(100vh - 118px);
+      overflow: hidden;
+      user-select: none;
+      isolation: isolate;
+    }
+    #play::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: url("img/tommy-silver-cCw6KQVJnyU-unsplash.jpg") center / cover no-repeat;
+      opacity: 0.4;
+      z-index: -2;
+      pointer-events: none;
+    }
+    #play canvas {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+    #line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 72px;
+      height: 6px;
+      background: repeating-linear-gradient(
+        90deg,
+        #ff2e63 0px,
+        #ff2e63 18px,
+        #fde047 18px,
+        #fde047 36px
+      );
+      border-radius: 999px;
+      box-shadow: 0 0 14px #ff2e63, 0 0 28px rgba(255, 46, 99, 0.8);
+      z-index: 2;
+      pointer-events: none;
+    }
+    #line::after {
+      content: "⚡ RED LINE ⚡";
+      position: absolute;
+      right: 16px;
+      top: -22px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #ff2e63;
+      color: #fff;
+      border: 2px solid #fde047;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    }
+    .kana {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-width: 58px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.92);
+      line-height: 1.1;
+      font-size: 36px;
+      font-weight: 800;
+      color: #ffffff;
+      pointer-events: none;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+      box-shadow: 0 6px 0 rgba(0, 0, 0, 0.28), 0 8px 16px rgba(0, 0, 0, 0.35), inset 0 3px 0 rgba(255, 255, 255, 0.55);
+      z-index: 2;
+      transform-origin: center center;
+    }
+    .kana.theme-0 { background: linear-gradient(180deg, #ff6b8b 0%, #e11d48 100%); }
+    .kana.theme-1 { background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%); }
+    .kana.theme-2 { background: linear-gradient(180deg, #34d399 0%, #059669 100%); }
+    .kana.theme-3 { background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%); }
+    .kana.theme-4 { background: linear-gradient(180deg, #a78bfa 0%, #6d28d9 100%); }
+    .kana.theme-5 { background: linear-gradient(180deg, #fb923c 0%, #ea580c 100%); }
+    .kana-sub {
+      font-size: 16px;
+      font-weight: 800;
+      margin-top: 4px;
+      padding: 1px 8px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.55);
+      color: #fef08a;
+      border: 1.5px solid rgba(255, 255, 255, 0.65);
+      text-shadow: 0 1px 2px #000;
+      white-space: nowrap;
+    }
+    #bar {
+      height: 58px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 16px;
+      background: linear-gradient(90deg, #312e81 0%, #4c1d95 100%);
+      border-top: 4px solid #38bdf8;
+      position: relative;
+      z-index: 4;
+    }
+    #ime {
+      flex: 1;
+      font-family: inherit;
+      font-size: 20px;
+      font-weight: 700;
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: 3px solid #f472b6;
+      background: #ffffff;
+      color: #1e1b4b;
+      outline: none;
+      box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.15), 0 3px 0 rgba(0, 0, 0, 0.25);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    #ime:focus {
+      border-color: #fde047;
+      box-shadow: 0 0 0 4px rgba(253, 224, 71, 0.35), inset 0 2px 5px rgba(0, 0, 0, 0.12);
+    }
+    button {
+      font-family: inherit;
+      font-size: 17px;
+      font-weight: 800;
+      padding: 8px 22px;
+      border-radius: 999px;
+      border: 3px solid #ffffff;
+      background: linear-gradient(180deg, #4ade80 0%, #16a34a 100%);
+      color: #ffffff;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 5px 0 #14532d, 0 6px 12px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      transition: transform 0.08s ease, box-shadow 0.08s ease;
+    }
+    button:hover {
+      filter: brightness(1.06);
+    }
+    button:active {
+      transform: translateY(3px);
+      box-shadow: 0 2px 0 #14532d, 0 3px 6px rgba(0, 0, 0, 0.25);
+    }
+    #overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.72);
+      backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 14px;
+      z-index: 5;
+    }
+    #overlay.show { display: flex; }
+    .modal-card {
+      background: linear-gradient(180deg, #4f46e5 0%, #7c3aed 100%);
+      border: 5px solid #fde047;
+      border-radius: 28px;
+      padding: 28px 42px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 10px 0 #312e81, 0 20px 40px rgba(0, 0, 0, 0.55);
+      animation: bounceIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .modal-title {
+      font-size: 34px;
+      font-weight: 900;
+      color: #fde047;
+      text-shadow: 0 4px 0 #9a3412, 0 6px 12px rgba(0, 0, 0, 0.4);
+    }
+    .modal-score {
+      font-size: 22px;
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.18);
+      padding: 6px 20px;
+      border-radius: 999px;
+      border: 2px solid rgba(255, 255, 255, 0.6);
+    }
+    .btn-credits {
+      font-size: 14px;
+      padding: 5px 14px;
+      background: linear-gradient(180deg, #f472b6 0%, #db2777 100%);
+      box-shadow: 0 3px 0 #831843, 0 4px 8px rgba(0, 0, 0, 0.25);
+      margin-left: auto;
+    }
+    .btn-credits:active {
+      box-shadow: 0 1px 0 #831843;
+    }
+    #credits-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.76);
+      backdrop-filter: blur(5px);
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 10;
+    }
+    #credits-overlay.show { display: flex; }
+    .credits-card {
+      max-width: 540px;
+      width: 100%;
+      align-items: stretch;
+      text-align: left;
+      padding: 24px 28px;
+    }
+    .credits-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .credits-body {
+      background: rgba(15, 23, 42, 0.45);
+      border: 2px solid rgba(255, 255, 255, 0.45);
+      border-radius: 18px;
+      padding: 14px 18px;
+      font-size: 15px;
+      line-height: 1.55;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    .credits-body h1, .credits-body h2, .credits-body h3 {
+      margin: 0 0 8px;
+      color: #fde047;
+      font-size: 20px;
+    }
+    .credits-body p {
+      margin: 8px 0;
+    }
+    .credits-body ul {
+      margin: 6px 0;
+      padding-left: 20px;
+    }
+    .credits-body li {
+      margin: 6px 0;
+    }
+    .credits-body a {
+      color: #7dd3fc;
+      font-weight: 800;
+      text-decoration: underline;
+    }
+    .credits-body a:hover {
+      color: #fde047;
+    }
+    .credits-close-x {
+      padding: 4px 12px;
+      font-size: 18px;
+      background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%);
+      box-shadow: 0 3px 0 #881337;
+    }
+    @keyframes bounceIn {
+      0%   { transform: scale(0.5); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <span id="score-pill" class="hud-pill pill-score">⭐ Score: <b id="score">0</b></span>
+    <span id="miss-pill" class="hud-pill pill-miss"><span id="hearts">❤️❤️❤️❤️❤️</span> Miss: <b id="miss">0</b> / 5</span>
+    <span class="hud-pill pill-high">🏆 High: <b id="high">0</b></span>
+    <label class="hud-pill pill-set">📚 Set
+      <select id="set">
+        <option value="hira" selected>Hiragana only</option>
+        <option value="kata">Katakana only</option>
+        <option value="n5">N5 Kanji (80)</option>
+        <option value="n4">N4 Kanji (100)</option>
+        <option value="n3">N3 Kanji (100)</option>
+        <option value="n2">N2 Kanji (380)</option>
+      </select>
+    </label>
+    <label class="hud-pill pill-count">🎯 Characters
+      <input id="count" type="range" min="5" max="46" value="46" />
+      <b id="count-val">46</b>
+    </label>
+    <label class="hud-pill pill-speed">🚀 Speed
+      <select id="speed">
+        <option value="super">Super slow</option>
+        <option value="slow">Slow</option>
+        <option value="medium" selected>Medium</option>
+        <option value="fast">Fast</option>
+      </select>
+    </label>
+    <button id="btn-credits" type="button" class="btn-credits">🌟 Credits</button>
+  </div>
+  <div id="play">
+    <div id="line"></div>
+    <div id="overlay">
+      <div class="modal-card">
+        <div class="modal-title">🌟 GAME OVER 🌟</div>
+        <div class="modal-score">⭐ Score: <span id="final">0</span></div>
+        <button id="again">🔄 Play again!</button>
+      </div>
+    </div>
+  </div>
+  <div id="credits-overlay" role="dialog" aria-modal="true" aria-labelledby="credits-title">
+    <div class="modal-card credits-card">
+      <div class="credits-header">
+        <div id="credits-title" class="modal-title" style="font-size:26px">🌟 Credits</div>
+        <button id="btn-credits-x" type="button" class="credits-close-x" aria-label="Close credits">✕</button>
+      </div>
+      <div id="credits-body" class="credits-body">Loading credits...</div>
+      <div style="display:flex;justify-content:flex-end">
+        <button id="btn-credits-close" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+  <div id="bar">
+    <input id="ime" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+           placeholder="✨ 日本語入力でひらがな／カタカナ／漢字を打とう！" />
+    <button id="start">▶ Start!</button>
+  </div>
+  <script>
+    const HIRA = [
+      "あ","い","う","え","お","か","き","く","け","こ","さ","し","す","せ","そ",
+      "た","ち","つ","て","と","な","に","ぬ","ね","の","は","ひ","ふ","へ","ほ",
+      "ま","み","む","め","も","や","ゆ","よ","ら","り","る","れ","ろ","わ","を","ん"
+    ];
+    const KATA = [
+      "ア","イ","ウ","エ","オ","カ","キ","ク","ケ","コ","サ","シ","ス","セ","ソ",
+      "タ","チ","ツ","テ","ト","ナ","ニ","ヌ","ネ","ノ","ハ","ヒ","フ","ヘ","ホ",
+      "マ","ミ","ム","メ","モ","ヤ","ユ","ヨ","ラ","リ","ル","レ","ロ","ワ","ヲ","ン"
+    ];
+    const N5 = [
+      ["人","にん"],["一","いち"],["日","にち"],["大","たい"],["年","ねん"],["出","しゅつ"],["本","ほん"],["中","ちゅう"],["子","し"],["見","み"],
+      ["国","こく"],["上","じょう"],["分","ぶん"],["生","せい"],["行","こう"],["二","に"],["間","かん"],["時","じ"],["気","き"],["十","じゅう"],
+      ["女","じょ"],["三","さん"],["前","ぜん"],["入","にゅう"],["小","しょう"],["後","ご"],["長","ちょう"],["下","か"],["学","がく"],["月","げつ"],
+      ["何","なに"],["来","らい"],["話","わ"],["山","さん"],["高","こう"],["今","こん"],["書","しょ"],["五","ご"],["名","めい"],["金","きん"],
+      ["男","だん"],["外","がい"],["四","し"],["先","せん"],["川","かわ"],["東","とう"],["聞","ぶん"],["語","ご"],["九","く"],["食","しょく"],
+      ["八","はち"],["水","すい"],["天","てん"],["木","もく"],["六","ろく"],["万","まん"],["白","はく"],["七","しち"],["円","えん"],["電","でん"],
+      ["父","ちち"],["北","ほく"],["車","しゃ"],["母","はは"],["半","はん"],["百","ひゃく"],["土","ど"],["西","せい"],["読","よ"],["千","せん"],
+      ["校","こう"],["右","ゆう"],["南","なん"],["左","さ"],["友","ゆう"],["火","か"],["毎","まい"],["雨","あめ"],["休","きゅう"],["午","ご"]
+    ];
+    const N4 = [
+      ["言","げん"],["手","て"],["自","じ"],["者","しゃ"],["事","じ"],["思","し"],["会","かい"],["家","か"],["的","てき"],["方","ほう"],
+      ["地","ち"],["目","め"],["場","じょう"],["代","だい"],["私","し"],["立","りつ"],["物","ぶつ"],["田","た"],["体","たい"],["動","どう"],
+      ["社","しゃ"],["知","ち"],["理","り"],["同","どう"],["心","しん"],["発","はつ"],["作","さく"],["新","しん"],["世","せ"],["度","ど"],
+      ["明","めい"],["力","りょく"],["意","い"],["用","よう"],["主","しゅ"],["通","つう"],["文","ぶん"],["屋","や"],["業","ぎょう"],["持","じ"],
+      ["道","どう"],["身","しん"],["不","ふ"],["口","こう"],["多","た"],["野","や"],["考","こう"],["開","かい"],["教","きょう"],["近","きん"],
+      ["以","い"],["問","もん"],["正","せい"],["真","しん"],["味","み"],["界","かい"],["無","む"],["少","しょう"],["海","かい"],["切","せつ"],
+      ["重","じゅう"],["集","しゅう"],["員","いん"],["公","こう"],["画","が"],["死","し"],["安","あん"],["親","しん"],["強","きょう"],["使","し"],
+      ["朝","あさ"],["題","だい"],["仕","し"],["京","きょう"],["足","そく"],["品","ひん"],["着","ちゃく"],["別","べつ"],["音","おん"],["元","げん"],
+      ["特","とく"],["風","ふう"],["夜","や"],["空","くう"],["有","ゆう"],["起","お"],["運","うん"],["料","りょう"],["楽","らく"],["色","いろ"],
+      ["帰","かえ"],["歩","ほ"],["悪","あく"],["広","ひろ"],["店","てん"],["町","ちょう"],["住","じゅう"],["売","ばい"],["待","たい"],["古","こ"]
+    ];
+    const N3 = [
+      ["合","ごう"],["部","ぶ"],["彼","かれ"],["内","ない"],["実","じつ"],["当","とう"],["戦","せん"],["性","せい"],["対","たい"],["関","かん"],
+      ["感","かん"],["定","てい"],["政","せい"],["取","しゅ"],["所","しょ"],["現","げん"],["最","さい"],["化","か"],["民","みん"],["相","そう"],
+      ["法","ほう"],["全","ぜん"],["情","じょう"],["向","こう"],["平","へい"],["成","せい"],["経","けい"],["信","しん"],["面","めん"],["連","れん"],
+      ["原","げん"],["顔","かお"],["機","き"],["次","じ"],["数","すう"],["美","び"],["回","かい"],["表","ひょう"],["声","こえ"],["報","ほう"],
+      ["要","よう"],["変","へん"],["神","しん"],["記","き"],["和","わ"],["引","ひ"],["治","じ"],["決","けつ"],["太","たい"],["込","こ"],
+      ["受","じゅ"],["解","かい"],["市","し"],["期","き"],["様","さま"],["活","かつ"],["頭","あたま"],["組","そ"],["指","し"],["説","せつ"],
+      ["能","のう"],["葉","は"],["流","りゅう"],["然","ぜん"],["初","しょ"],["在","ざい"],["調","ちょう"],["笑","わら"],["議","ぎ"],["直","ちょく"],
+      ["夫","ふう"],["選","せん"],["権","けん"],["利","り"],["制","せい"],["続","ぞく"],["石","せき"],["進","しん"],["伝","でん"],["加","か"],
+      ["助","じょ"],["点","てん"],["産","さん"],["務","む"],["件","けん"],["命","めい"],["番","ばん"],["落","らく"],["付","つ"],["得","とく"],
+      ["好","こう"],["違","ちが"],["殺","さつ"],["置","ち"],["返","へん"],["論","ろん"],["際","さい"],["歳","さい"],["反","はん"],["形","けい"]
+    ];
+    const N2 = [
+      ["軍","ぐん"],["兵","へい"],["島","しま"],["村","むら"],["門","もん"],["戸","と"],["武","ぶ"],["城","しろ"],["総","そう"],["団","だん"],
+      ["線","せん"],["設","せつ"],["勢","せい"],["党","とう"],["史","し"],["営","えい"],["府","ふ"],["巻","かん"],["介","かい"],["蔵","ぞう"],
+      ["造","ぞう"],["根","こん"],["寺","てら"],["査","さ"],["将","しょう"],["改","かい"],["県","けん"],["泉","せん"],["像","ぞう"],["細","さい"],
+      ["谷","たに"],["奥","おく"],["再","さ"],["血","けつ"],["算","さん"],["象","しょう"],["清","せい"],["技","ぎ"],["州","しゅう"],["領","りょう"],
+      ["橋","はし"],["芸","げい"],["型","けい"],["香","こう"],["量","りょう"],["久","きゅう"],["境","きょう"],["階","かい"],["区","く"],["波","は"],
+      ["移","い"],["域","いき"],["周","しゅう"],["接","せつ"],["鉄","てつ"],["頃","ころ"],["材","ざい"],["個","こ"],["協","きょう"],["各","かく"],
+      ["帯","たい"],["歴","れき"],["編","へん"],["裏","うら"],["比","ひ"],["坂","さか"],["装","そう"],["省","しょう"],["税","ぜい"],["競","きょう"],
+      ["囲","い"],["辺","へん"],["河","か"],["極","きょく"],["防","ぼう"],["低","てい"],["林","はやし"],["導","どう"],["森","もり"],["丸","まる"],
+      ["胸","むね"],["陸","りく"],["療","りょう"],["諸","しょ"],["管","かん"],["仲","なか"],["革","かく"],["担","たん"],["効","こう"],["賞","しょう"],
+      ["星","せい"],["復","ふく"],["片","かた"],["並","へい"],["底","そこ"],["温","おん"],["軽","かる"],["録","ろく"],["腰","こし"],["著","ちょ"],
+      ["乱","らん"],["章","しょう"],["殿","でん"],["布","ふ"],["角","かく"],["仏","ぶつ"],["永","えい"],["誌","し"],["減","げん"],["略","りゃく"],
+      ["準","じゅん"],["委","い"],["令","れい"],["刊","かん"],["焼","や"],["里","さと"],["圧","あつ"],["額","がく"],["印","いん"],["池","ち"],
+      ["臣","しん"],["庫","こ"],["農","のう"],["板","はん"],["恋","れん"],["羽","はね"],["専","せん"],["逆","ぎゃく"],["腕","うで"],["短","たん"],
+      ["普","ふ"],["岩","いわ"],["竹","たけ"],["児","じ"],["毛","もう"],["版","はん"],["宇","う"],["況","きょう"],["被","ひ"],["岸","がん"],
+      ["超","ちょう"],["豊","ほう"],["含","がん"],["植","しょく"],["補","ほ"],["暴","ぼう"],["課","か"],["跡","せき"],["触","しょく"],["玉","たま"],
+      ["震","しん"],["億","おく"],["肩","かた"],["劇","げき"],["刺","し"],["述","じゅつ"],["輪","りん"],["浅","あさ"],["純","じゅん"],["薄","はく"],
+      ["阪","はん"],["韓","かん"],["固","こ"],["巨","きょ"],["講","こう"],["般","はん"],["湯","ゆ"],["捨","す"],["衣","い"],["替","か"],
+      ["央","おう"],["骨","こつ"],["齢","れい"],["照","しょう"],["層","そう"],["弱","じゃく"],["築","ちく"],["脳","のう"],["航","こう"],["快","かい"],
+      ["翌","よく"],["旧","きゅう"],["筆","ひつ"],["換","かん"],["群","ぐん"],["爆","ばく"],["捜","そう"],["油","ゆ"],["叫","きょう"],["伸","の"],
+      ["承","しょう"],["雲","くも"],["練","れん"],["紹","しょう"],["包","ほう"],["庁","ちょう"],["測","そく"],["占","せん"],["混","こん"],["倍","ばい"],
+      ["乳","にゅう"],["荒","あ"],["詰","つ"],["栄","えい"],["床","しょう"],["則","そく"],["禁","きん"],["順","じゅん"],["枚","まい"],["厚","あつ"],
+      ["皮","ひ"],["輸","ゆ"],["濃","のう"],["簡","かん"],["孫","そん"],["丈","じょう"],["黄","き"],["届","とど"],["絡","らく"],["採","さい"],
+      ["傾","けい"],["鼻","はな"],["宝","ほう"],["患","かん"],["延","えん"],["律","りつ"],["希","き"],["甘","あま"],["湾","わん"],["沈","ちん"],
+      ["販","はん"],["欧","おう"],["砂","さ"],["尊","そん"],["紅","こう"],["複","ふく"],["泊","はく"],["荷","に"],["枝","し"],["依","い"],
+      ["幼","よう"],["斬","ざん"],["勇","ゆう"],["昇","しょう"],["寿","じゅ"],["菜","さい"],["季","き"],["液","えき"],["券","けん"],["祭","さい"],
+      ["袋","ふくろ"],["燃","ねん"],["毒","どく"],["札","さつ"],["狙","そ"],["脇","わき"],["卒","そつ"],["副","ふく"],["敬","けい"],["針","しん"],
+      ["拝","はい"],["浴","よく"],["悩","なや"],["汚","お"],["灯","とう"],["坊","ぼう"],["尻","しり"],["涙","るい"],["停","てい"],["了","りょう"],
+      ["汗","あせ"],["郵","ゆう"],["幅","はば"],["童","どう"],["虫","むし"],["埋","う"],["舟","ふね"],["闇","やみ"],["棒","ぼう"],["貨","か"],
+      ["肌","はだ"],["臓","ぞう"],["塩","しお"],["均","きん"],["湖","こ"],["損","そん"],["膝","しつ"],["辛","しん"],["双","そう"],["軒","けん"],
+      ["績","せき"],["干","かん"],["姓","せい"],["掘","くつ"],["籍","せき"],["珍","ちん"],["訓","くん"],["預","よ"],["署","しょ"],["漁","ぎょ"],
+      ["緑","みどり"],["畳","じょう"],["咲","さ"],["貿","ぼう"],["踊","おど"],["封","ふう"],["兆","ちょう"],["柱","ちゅう"],["駐","ちゅう"],["祝","しゅく"],
+      ["炭","たん"],["柔","じゅう"],["雇","こ"],["乾","かん"],["鋭","えい"],["氷","こおり"],["隅","すみ"],["冊","さつ"],["糸","いと"],["募","ぼ"],
+      ["硬","こう"],["塗","と"],["憎","ぞう"],["泥","でい"],["脂","し"],["粉","ふん"],["詞","し"],["筒","とう"],["掃","そう"],["塔","とう"],
+      ["賢","けん"],["拾","ひろ"],["麦","むぎ"],["刷","さつ"],["卵","たまご"],["械","かい"],["皿","さら"],["祈","き"],["灰","はい"],["召","しょう"],
+      ["溶","よう"],["磨","みが"],["粒","りゅう"],["喫","きつ"],["机","つくえ"],["貯","ちょ"],["匹","ひき"],["綿","めん"],["贈","ぞう"],["凍","とう"],
+      ["瓶","びん"],["帽","ぼう"],["涼","りょう"],["秒","びょう"],["湿","しつ"],["蒸","じょう"],["菓","か"],["耕","こう"],["鉱","こう"],["膚","ふ"],
+      ["胃","い"],["挟","はさ"],["郊","こう"],["銅","どう"],["鈍","どん"],["貝","かい"],["缶","かん"],["枯","こ"],["滴","てき"],["符","ふ"],
+      ["畜","ちく"],["軟","なん"],["濯","たく"],["隻","せき"],["伺","うかが"],["沸","ふつ"],["曇","くも"],["肯","こう"],["燥","そう"],["零","れい"]
+    ];
+    const SETS = { hira: HIRA, kata: KATA, n5: N5, n4: N4, n3: N3, n2: N2 };
+    const SPEEDS = {
+      super:  { min: 18,  max: 28,  spawn: [1.8, 2.8] },
+      slow:   { min: 32,  max: 52,  spawn: [1.2, 2.0] },
+      medium: { min: 50,  max: 90,  spawn: [0.7, 1.4] },
+      fast:   { min: 120, max: 190, spawn: [0.35, 0.7] }
+    };
+
+    const HS_KEY = "kana-rain-highscore";
+    const play = document.getElementById("play");
+    const overlay = document.getElementById("overlay");
+    const ime = document.getElementById("ime");
+    const scoreEl = document.getElementById("score");
+    const missEl = document.getElementById("miss");
+    const heartsEl = document.getElementById("hearts");
+    const scorePillEl = document.getElementById("score-pill");
+    const missPillEl = document.getElementById("miss-pill");
+    const highEl = document.getElementById("high");
+    const finalEl = document.getElementById("final");
+    const setEl = document.getElementById("set");
+    const countEl = document.getElementById("count");
+    const countValEl = document.getElementById("count-val");
+
+    function createSfxPool(src, size = 4) {
+      const pool = Array.from({ length: size }, () => {
+        const a = new Audio(src);
+        a.preload = "auto";
+        return a;
+      });
+      let idx = 0;
+      return () => {
+        const a = pool[idx];
+        idx = (idx + 1) % pool.length;
+        a.currentTime = 0;
+        a.play().catch(() => {});
+      };
+    }
+
+    const sfxHit = createSfxPool("sfx/vadim_makes_sound-modern-success-confirmation-notification-566072.mp3");
+    const sfxMiss = createSfxPool("sfx/lesiakower-error-mistake-sound-effect-incorrect-answer-437420.mp3");
+
+    let running = false;
+    let score = 0;
+    let miss = 0;
+    let drops = [];
+    let last = 0;
+    let spawnAt = 0;
+    let composing = false;
+    let pool = SETS.hira;
+    let deck = [];
+    let prevMax = SETS.hira.length;
+    let speedCfg = SPEEDS.medium;
+    let themeIdx = 0;
+    let phaserScene = null;
+    let burstEmitter = null;
+    let high = Number(localStorage.getItem(HS_KEY) || 0);
+    highEl.textContent = high;
+
+    function rand(min, max) { return Math.random() * (max - min) + min; }
+
+    function popPill(el) {
+      if (!el || !el.classList) return;
+      el.classList.remove("pop");
+      void el.offsetWidth;
+      el.classList.add("pop");
+      setTimeout(() => el.classList.remove("pop"), 160);
+    }
+
+    function updateHearts() {
+      if (!heartsEl) return;
+      const alive = Math.max(0, 5 - miss);
+      heartsEl.textContent = "❤️".repeat(alive) + "🖤".repeat(5 - alive);
+    }
+
+    function shuffle(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = (Math.random() * (i + 1)) | 0;
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function syncCountBounds() {
+      const full = SETS[setEl.value] || SETS.hira;
+      const cur = Number(countEl.value);
+      const nextMax = full.length;
+      countEl.max = String(nextMax);
+      if (cur >= prevMax || cur > nextMax) {
+        countEl.value = String(nextMax);
+      } else if (cur < 5) {
+        countEl.value = "5";
+      }
+      prevMax = nextMax;
+      countValEl.textContent = countEl.value;
+    }
+
+    setEl.addEventListener("change", syncCountBounds);
+    countEl.addEventListener("input", () => {
+      countValEl.textContent = countEl.value;
+    });
+
+    function emitHitEffect(x, y) {
+      if (!phaserScene) return;
+      if (burstEmitter) {
+        burstEmitter.explode(16, x, y);
+      }
+      const popup = phaserScene.add.text(x, y, "+10 ⭐", {
+        fontFamily: "system-ui, sans-serif",
+        fontSize: "24px",
+        fontStyle: "bold",
+        color: "#fde047",
+        stroke: "#7c2d12",
+        strokeThickness: 5
+      }).setOrigin(0.5);
+      phaserScene.tweens.add({
+        targets: popup,
+        y: y - 55,
+        scaleX: 1.25,
+        scaleY: 1.25,
+        alpha: 0,
+        duration: 650,
+        ease: "Cubic.easeOut",
+        onComplete: () => popup.destroy()
+      });
+    }
+
+    function emitMissEffect(x, y) {
+      if (!phaserScene) return;
+      phaserScene.cameras.main.shake(150, 0.006);
+      const ring = phaserScene.add.circle(x, y, 12);
+      ring.setStrokeStyle(5, 0xff2e63, 1);
+      phaserScene.tweens.add({
+        targets: ring,
+        radius: 56,
+        alpha: 0,
+        duration: 420,
+        ease: "Quad.easeOut",
+        onComplete: () => ring.destroy()
+      });
+    }
+
+    function spawn() {
+      if (!deck.length) deck = shuffle(pool);
+      const item = deck.pop();
+      const isKanji = Array.isArray(item);
+      const char = isKanji ? item[0] : item;
+      const hira = isKanji ? item[1] : null;
+      const el = document.createElement("div");
+      const theme = themeIdx++ % 6;
+      el.className = "kana theme-" + theme;
+      if (isKanji) {
+        const kEl = document.createElement("div");
+        kEl.textContent = char;
+        const hEl = document.createElement("div");
+        hEl.className = "kana-sub";
+        hEl.textContent = hira;
+        el.append(kEl, hEl);
+      } else {
+        el.textContent = char;
+      }
+      play.appendChild(el);
+      const w = el.offsetWidth;
+      const h = el.offsetHeight || 48;
+      const baseX = rand(14, Math.max(15, play.clientWidth - w - 14));
+      el.style.left = baseX + "px";
+      el.style.top = -h + "px";
+      const drop = {
+        el,
+        char,
+        hira,
+        x: baseX,
+        baseX,
+        y: -h,
+        w,
+        h,
+        swayAmp: rand(4, 11),
+        swayFreq: rand(1.8, 3.2),
+        swayPhase: rand(0, Math.PI * 2),
+        scale: 1,
+        speed: rand(speedCfg.min, speedCfg.max)
+      };
+      if (phaserScene && phaserScene.tweens) {
+        drop.scale = 0.3;
+        el.style.transform = "scale(0.3)";
+        phaserScene.tweens.add({
+          targets: drop,
+          scale: 1,
+          duration: 280,
+          ease: "Back.easeOut",
+          onUpdate: () => {
+            el.style.transform = "scale(" + drop.scale.toFixed(3) + ")";
+          }
+        });
+      }
+      drops.push(drop);
+    }
+
+    function lineY() {
+      return play.clientHeight - 72;
+    }
+
+    function hit(input) {
+      let best = -1;
+      let bestY = -Infinity;
+      for (let i = 0; i < drops.length; i++) {
+        const d = drops[i];
+        if ((d.char === input || (d.hira && d.hira === input)) && d.y > bestY) {
+          bestY = d.y;
+          best = i;
+        }
+      }
+      if (best < 0) return false;
+      const matched = drops[best];
+      const cx = (matched.x || 0) + (matched.w || 48) / 2;
+      const cy = Math.max(24, matched.y + (matched.h || 48) / 2);
+      matched.el.remove();
+      drops.splice(best, 1);
+      score += 10;
+      scoreEl.textContent = score;
+      popPill(scorePillEl);
+      emitHitEffect(cx, cy);
+      sfxHit();
+      return true;
+    }
+
+    function tryMatch(raw) {
+      const chars = [...raw.trim()];
+      for (let i = 0; i < chars.length; i++) {
+        if (hit(chars.slice(i).join(""))) {
+          ime.value = "";
+          return;
+        }
+      }
+    }
+
+    function gameOver() {
+      running = false;
+      drops.forEach(d => d.el.remove());
+      drops = [];
+      overlay.classList.add("show");
+      finalEl.textContent = score;
+      if (score > high) {
+        high = score;
+        localStorage.setItem(HS_KEY, String(high));
+        highEl.textContent = high;
+      }
+    }
+
+    function reset() {
+      drops.forEach(d => d.el.remove());
+      drops = [];
+      score = 0;
+      miss = 0;
+      scoreEl.textContent = 0;
+      missEl.textContent = 0;
+      updateHearts();
+      overlay.classList.remove("show");
+      ime.value = "";
+    }
+
+    function applySettings() {
+      syncCountBounds();
+      const full = SETS[setEl.value] || SETS.hira;
+      const n = Math.max(5, Math.min(full.length, Number(countEl.value) || full.length));
+      pool = shuffle(full).slice(0, n);
+      deck = [];
+      speedCfg = SPEEDS[document.getElementById("speed").value] || SPEEDS.medium;
+    }
+
+    function stepGame(dt, elapsedSec) {
+      if (!running) return;
+      spawnAt -= dt;
+      if (spawnAt <= 0) {
+        spawn();
+        spawnAt = rand(speedCfg.spawn[0], speedCfg.spawn[1]);
+      }
+      const limit = lineY();
+      for (let i = drops.length - 1; i >= 0; i--) {
+        const d = drops[i];
+        d.y += d.speed * dt;
+        if (d.baseX !== undefined) {
+          d.x = d.baseX + Math.sin(elapsedSec * d.swayFreq + d.swayPhase) * d.swayAmp;
+          d.el.style.left = d.x + "px";
+        }
+        d.el.style.top = d.y + "px";
+        if (d.y + d.el.offsetHeight >= limit) {
+          const cx = (d.x || 0) + (d.w || 48) / 2;
+          d.el.remove();
+          drops.splice(i, 1);
+          miss += 1;
+          missEl.textContent = miss;
+          updateHearts();
+          popPill(missPillEl);
+          emitMissEffect(cx, limit);
+          sfxMiss();
+          if (miss >= 5) {
+            gameOver();
+            return;
+          }
+        }
+      }
+    }
+
+    function start() {
+      applySettings();
+      reset();
+      running = true;
+      last = performance.now();
+      spawnAt = 0;
+      ime.focus();
+      if (!phaserScene) requestAnimationFrame(loop);
+    }
+
+    function loop(t) {
+      if (!running || phaserScene) return;
+      const dt = Math.min(0.05, (t - last) / 1000);
+      last = t;
+      stepGame(dt, t / 1000);
+      if (running) requestAnimationFrame(loop);
+    }
+
+    if (typeof Phaser !== "undefined") {
+      new Phaser.Game({
+        type: Phaser.AUTO,
+        parent: "play",
+        width: play.clientWidth || 800,
+        height: play.clientHeight || 500,
+        transparent: true,
+        scale: {
+          mode: Phaser.Scale.RESIZE,
+          autoCenter: Phaser.Scale.NO_CENTER
+        },
+        scene: {
+          create() {
+            phaserScene = this;
+            const g = this.make.graphics({ x: 0, y: 0, add: false });
+            g.fillStyle(0xffffff, 1);
+            g.fillCircle(8, 8, 8);
+            g.generateTexture("confetti", 16, 16);
+            g.destroy();
+            burstEmitter = this.add.particles(0, 0, "confetti", {
+              speed: { min: 70, max: 220 },
+              angle: { min: 0, max: 360 },
+              scale: { start: 1, end: 0 },
+              lifespan: 550,
+              gravityY: 260,
+              tint: [0xfde047, 0xff6b8b, 0x38bdf8, 0x34d399, 0xa78bfa, 0xfb923c],
+              emitting: false
+            });
+          },
+          update(time, delta) {
+            if (running) {
+              stepGame(Math.min(0.05, delta / 1000), time / 1000);
+            }
+          }
+        }
+      });
+    }
+
+    ime.addEventListener("compositionstart", () => { composing = true; });
+    ime.addEventListener("compositionend", (e) => {
+      composing = false;
+      tryMatch(e.data || ime.value);
+    });
+    ime.addEventListener("input", () => {
+      if (!composing) tryMatch(ime.value);
+    });
+    ime.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        tryMatch(ime.value);
+        ime.value = "";
+      }
+    });
+
+    document.getElementById("start").onclick = start;
+    document.getElementById("again").onclick = start;
+
+    const CREDITS_FALLBACK = `# Kana Typing Master
+
+Developed by Ridwanbejo at November 2026 in West Java, Indonesia.
+Made with Gemini, Phaser.js, HTML5, CSS, Javascript and bunch of love.
+
+assets:
+
+- [Fujiyama photo](https://unsplash.com/photos/body-of-water-near-mountain-under-blue-sky-during-daytime-cCw6KQVJnyU)
+- [SFX lesiakower error mistake sound effect](https://pixabay.com/sound-effects/film-special-effects-error-mistake-sound-effect-incorrect-answer-437420/)
+- [SFX vadim sound modern success confirmation notification](https://pixabay.com/sound-effects/technology-modern-success-confirmation-notification-566072/)
+
+Thanks for playing this game!.`;
+
+    const creditsOverlayEl = document.getElementById("credits-overlay");
+    const creditsBodyEl = document.getElementById("credits-body");
+    let creditsCache = null;
+
+    function appendInlineMd(parent, text) {
+      const linkRe = /(?:\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\(([^)]+)\)\[(https?:\/\/[^\s\]]+)\])/g;
+      let lastIdx = 0;
+      let m;
+      while ((m = linkRe.exec(text)) !== null) {
+        if (m.index > lastIdx) {
+          parent.appendChild(document.createTextNode(text.slice(lastIdx, m.index)));
+        }
+        const a = document.createElement("a");
+        a.textContent = m[1] || m[3];
+        a.href = m[2] || m[4];
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        parent.appendChild(a);
+        lastIdx = linkRe.lastIndex;
+      }
+      if (lastIdx < text.length) {
+        parent.appendChild(document.createTextNode(text.slice(lastIdx)));
+      }
+    }
+
+    function renderCreditsMd(container, md) {
+      container.textContent = "";
+      const lines = md.replace(/\r\n/g, "\n").split("\n");
+      let ul = null;
+      for (const raw of lines) {
+        const line = raw.trim();
+        if (!line) {
+          ul = null;
+          continue;
+        }
+        const hm = /^(#{1,3})\s+(.*)$/.exec(line);
+        if (hm) {
+          ul = null;
+          const h = document.createElement("h" + hm[1].length);
+          appendInlineMd(h, hm[2]);
+          container.appendChild(h);
+          continue;
+        }
+        const lm = /^[-*]\s+(.*)$/.exec(line);
+        if (lm) {
+          if (!ul) {
+            ul = document.createElement("ul");
+            container.appendChild(ul);
+          }
+          const li = document.createElement("li");
+          appendInlineMd(li, lm[1]);
+          ul.appendChild(li);
+          continue;
+        }
+        ul = null;
+        const p = document.createElement("p");
+        appendInlineMd(p, line);
+        container.appendChild(p);
+      }
+    }
+
+    async function openCredits() {
+      creditsOverlayEl.classList.add("show");
+      if (creditsCache !== null) {
+        renderCreditsMd(creditsBodyEl, creditsCache);
+        return;
+      }
+      try {
+        const res = await fetch("CREDITS.md", { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        creditsCache = await res.text();
+      } catch (_) {
+        creditsCache = CREDITS_FALLBACK;
+      }
+      renderCreditsMd(creditsBodyEl, creditsCache);
+    }
+
+    function closeCredits() {
+      creditsOverlayEl.classList.remove("show");
+    }
+
+    document.getElementById("btn-credits").onclick = openCredits;
+    document.getElementById("btn-credits-close").onclick = closeCredits;
+    document.getElementById("btn-credits-x").onclick = closeCredits;
+    creditsOverlayEl.addEventListener("click", (e) => {
+      if (e.target === creditsOverlayEl) closeCredits();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && creditsOverlayEl.classList.contains("show")) {
+        closeCredits();
+      }
+    });
+  </script>
+</body>
+</html>
